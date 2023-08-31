@@ -44,7 +44,7 @@ are exclusively located within a single leaf folder.
 Specifically, we assume the dataset being in folder ``./harddisk/dataset/``. And then we split the dataset
 into two parts: training dataset and testing dataset (or validation dataset).
 
-While split, we identify the images with 5 labels:
+While splitting, we identified the images with 5 labels:
 * BCC (Basal Cell Carcinoma)
 * NS (normal skin)
 * Melanocytic
@@ -62,19 +62,23 @@ We make sure that, training data and testing data belong to different patients. 
 will not involve in the training process. The result of this step will be some files:
 ```
 load_by_patient_bcc_dirs.txt
-load_by_patient_lentigo_dirs.txt
-load_by_patient_melanocytic_dirs.txt
-load_by_patient_ns_dirs.txt
-load_by_patient_sebK_dirs.txt
+load_by_patient_other_dirs.txt
 load_by_patient_unknown_dirs.txt
+load_by_seq_bcc_dirs.txt
+load_by_seq_other_dirs.txt
 ```
-Please note, the folders in the above files are in ``patient`` level. One patient may have multiple image sequences,
-and therefore have multiple leaf folders.
+Since we take "melanocytic", "lentigo", "ns" and "seb K" as ``other``, hereby the splitting result
+has only two types: ``BCC`` and ``other``.
+The "``unknown``" file contains folders of unknown disease type, and we can ignore it for now. 
+Those "unknown" folders won't involve in the training and testing process.
+
+Please note, the first three folders in the above files are in ``patient`` level. 
+One patient may have multiple image sequences, and therefore have multiple leaf folders.
+And the last two folders are in ``sequence`` level, containing the leaf folders respectively.
 
 ### 2.2. Step 2: split folders by training and testing
 
-From previous step result, we take "melanocytic", "lentigo", "ns" and "seb K" as ``others``.
-Then we split ``BCC`` folders and ``other`` folders into training and testing parts, separately.
+We split ``BCC`` folders and ``other`` folders into training and testing parts, separately.
 The result of this step is 4 files:
 ```
 dir_train_bcc.txt
@@ -84,23 +88,23 @@ dir_val_other.txt
 ```
 Please note, the folders in the above files are in ``sequence`` level. That means each folder is a leaf folder.
 
-| split       | sequence count<br/>(leaf dir count) | image count  |
-|-------------|-------------------------------------|--------------|
-| train_bcc   | 634                                 | 17377        |
-| train_other | 1125                                | 31615        |
-| test_bcc    | 133                                 | 3675         |
-| test_other  | 198                                 | 5803         |
-| **sum**     | 2090                                | 58470        |
+| split       | sequence count<br/>(leaf dir count) | image count |
+|-------------|-------------------------------------|-------------|
+| train_bcc   | 630                                 | 17187       |
+| train_other | 1103                                | 31085       |
+| test_bcc    | 137                                 | 3865        |
+| test_other  | 207                                 | 5843        |
+| **sum**     | 2077                                | 57980       |
 
 
-To verify the above splitting, we also output the leaf folders by disease label. And they are in the following
+To get some statistical data, we also output the leaf folders by disease label. And they are in the following
 files:
 ```
-load_by_seq_bcc_dirs.txt
-load_by_seq_lentigo_dirs.txt
-load_by_seq_melanocytic_dirs.txt
-load_by_seq_ns_dirs.txt
-load_by_seq_sebK_dirs.txt
+load_stat_bcc_dirs.txt
+load_stat_lentigo_dirs.txt
+load_stat_melanocytic_dirs.txt
+load_stat_ns_dirs.txt
+load_stat_sebK_dirs.txt
 ```
 
 ### 2.3. Splitting result
@@ -113,16 +117,15 @@ Overall, after splitting, the ``"harddisk/"`` folder structure should be like th
   dir_val_bcc.txt
   dir_val_other.txt
   load_by_patient_bcc_dirs.txt
-  load_by_patient_lentigo_dirs.txt
-  load_by_patient_melanocytic_dirs.txt
-  load_by_patient_ns_dirs.txt
-  load_by_patient_sebK_dirs.txt
+  load_by_patient_other_dirs.txt
   load_by_patient_unknown_dirs.txt
   load_by_seq_bcc_dirs.txt
-  load_by_seq_lentigo_dirs.txt
-  load_by_seq_melanocytic_dirs.txt
-  load_by_seq_ns_dirs.txt
-  load_by_seq_sebK_dirs.txt
+  load_by_seq_other_dirs.txt
+  load_stat_bcc_dirs.txt
+  load_stat_lentigo_dirs.txt
+  load_stat_melanocytic_dirs.txt
+  load_stat_ns_dirs.txt
+  load_stat_sebK_dirs.txt
 ```
 
 ## 3. How to run
