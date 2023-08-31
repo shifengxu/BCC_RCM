@@ -102,10 +102,12 @@ def get_train_data_loader():
         transforms.Resize(args.image_size),
         transforms.RandomHorizontalFlip(p=0.5),
         # transforms.RandomVerticalFlip(p=0.5),
-        # transforms.RandomRotation((-45, 45)),
+        transforms.RandomRotation((-15, 15)),
         # transforms.RandomEqualize(p=0.2),
         transforms.ToTensor(),
     ])
+    log_info(f"Train data augment: RandomHorizontalFlip(p=0.5)")
+    log_info(f"Train data augment: RandomRotation((-15, 15))")
 
     # from dir list to file list. Each dir is a leaf dir, containing *.tif images
     def dirs2files(dir_list):
