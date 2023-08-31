@@ -7,8 +7,10 @@ s_ns = 'normal skin'
 s_bcc = 'bcc'
 s_mel = 'melanocytic'
 s_len = 'lentigo'
-s_ignore1 = 'Macroscopic Images'
-s_ignore2 = 'VivaBlock'
+s_ignore1 = 'Macroscopic Images'    # image too big to load
+s_ignore2 = 'VivaBlock'             # image too big to load
+s_ignore31 = '1640 melanocytic nevus 6 lesions'
+s_ignore32 = '1640(2)'              # duplicated image
 
 bcc_patient_dirs = []   # BCC
 ns_patient_dirs  = []   # normal skin
@@ -16,6 +18,12 @@ mel_patient_dirs = []   # melanocytic
 ltg_patient_dirs = []   # lentigo
 seb_patient_dirs = []   # seb K
 unknown_dirs     = []   # unknown
+
+# ignore it because duplication.
+#   "1419 normal skin central back/1419/central back"
+#   "1419 R elbow and central back normal/1419/central back"
+# the latter has other folders, so we ignore the former.
+ign_patient_dir1 = "1419 normal skin central back"
 
 def classify_dirs_by_patient(data_dir):
     def handle_bcc_specific(root_path):
@@ -68,6 +76,9 @@ def classify_dirs_by_patient(data_dir):
     item_list.sort()
     for i, item in enumerate(item_list):
         # log_fn(f"{i: 3d}: {item}")
+        if item == ign_patient_dir1:
+            log_info(f"Ignore patient dir: {ign_patient_dir1}")
+            continue
         sub_path = os.path.join(data_dir, item)
         if not os.path.isdir(sub_path): continue
         sub_lw = item.lower()
@@ -137,7 +148,7 @@ def save_dirs_by_patient(data_dir):
         [fptr.write(f"{fp[prefix_len:]}\r\n") for fp in seb_patient_dirs]
     log_info(f"saved: {f_path}")
 
-    f_path = os.path.join(data_dir, f"load_unknown_patient_dirs.txt")
+    f_path = os.path.join(data_dir, f"load_by_patient_unknown_dirs.txt")
     with open(f_path, 'w') as fptr:
         [fptr.write(f"{fp[prefix_len:]}\r\n") for fp in unknown_dirs]
     log_info(f"saved: {f_path}")
@@ -165,6 +176,7 @@ def get_leaf_dir_map_from_dir_list(dir_list):
             if len(subdir_list) > 0: continue  # has subdir, then dir_path is not leaf dir.
             if s_ignore1 in dir_path: continue
             if s_ignore2 in dir_path: continue
+            if s_ignore31 in dir_path and s_ignore32 in dir_path: continue
             tif_arr = [f for f in f_list if f.endswith('tif')]
             if len(tif_arr) == 0: continue
             leaf_dir_map[dir_path] = len(tif_arr)  # this is leaf dir.
