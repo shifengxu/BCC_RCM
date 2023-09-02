@@ -158,7 +158,7 @@ def get_train_data_loader():
 
     return train_loader
 
-def save_model(model, epoch, lr, train_accu):
+def save_model(model, epoch, lr, train_accu, test_accu_arr):
     m = model
     if isinstance(m, torch.nn.DataParallel):
         m = m.module
@@ -166,8 +166,15 @@ def save_model(model, epoch, lr, train_accu):
         "model": m.state_dict(),
         "epoch": epoch,
         "lr"   : lr,
-        "train_accu": train_accu,
         "resnet"    : args.resnet,
+        "image_size": args.image_size,
+        "train_accu": train_accu,
+        "test_accu_img"      : test_accu_arr[0],
+        "test_accu_img_bcc"  : test_accu_arr[1],
+        "test_accu_img_other": test_accu_arr[2],
+        "test_accu_seq"      : test_accu_arr[3],
+        "test_accu_seq_bcc"  : test_accu_arr[4],
+        "test_accu_seq_other": test_accu_arr[5],
     }
     if not os.path.exists(args.ckpt_save_dir):
         os.makedirs(args.ckpt_save_dir)
@@ -331,11 +338,11 @@ def main():
                 log_info(s)
         # for batch
         scheduler.step()
-        calc_accuracy(model, tb_loader, to_loader, tb_info, to_info)
+        test_accu_arr = calc_accuracy(model, tb_loader, to_loader, tb_info, to_info)
         e_tmp = e_idx + 1
         if e_tmp % args.ckpt_save_interval == 0 or e_tmp == e_cnt:
             accu = float(numerator) / denominator
-            save_model(model, e_tmp, lr, accu)
+            save_model(model, e_tmp, lr, accu, test_accu_arr)
     # for epoch
 
 if __name__ == "__main__":
