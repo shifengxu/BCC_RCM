@@ -64,6 +64,7 @@ def load_model():
 def get_data_loader_info(index_file):
     # get dir list from file
     dir_list = read_lines(index_file)
+    dir_list = [d.split('\t')[0] for d in dir_list] # remove suffix (\t image_count)
     file_list = []
     info_map = {}
     i_start, i_ended = 0, 0
@@ -77,13 +78,41 @@ def get_data_loader_info(index_file):
         info_map[full_dir] = (i_start, i_ended)
     # for
     tf = transforms.Compose([transforms.Resize(args.image_size), transforms.ToTensor()])
+    tf_l = transforms.Compose([ # rotate to left
+        transforms.Resize(args.image_size),
+        transforms.RandomHorizontalFlip(p=1.0),
+        transforms.RandomRotation((-10, -5)),
+        transforms.ToTensor()
+    ])
+    tf_r = transforms.Compose([ # rotate to right
+        transforms.Resize(args.image_size),
+        transforms.RandomHorizontalFlip(p=1.0),
+        transforms.RandomRotation((5, 10)),
+        transforms.ToTensor()
+    ])
     if 'bcc' in index_file:
         res_dataset = DatasetHarddisk(file_list, [], image_transform=tf)
+        res_dataset_l = DatasetHarddisk(file_list, [], image_transform=tf_l)
+        res_dataset_r = DatasetHarddisk(file_list, [], image_transform=tf_r)
     else:
         res_dataset = DatasetHarddisk([], file_list, image_transform=tf)
+        res_dataset_l = DatasetHarddisk([], file_list, image_transform=tf_l)
+        res_dataset_r = DatasetHarddisk([], file_list, image_transform=tf_r)
 
     res_loader = tu_data.DataLoader(
         res_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+    )
+    res_loader_l = tu_data.DataLoader(
+        res_dataset_l,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+    )
+    res_loader_r = tu_data.DataLoader(
+        res_dataset_r,
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.num_workers,
@@ -96,7 +125,7 @@ def get_data_loader_info(index_file):
     log_info(f"  batch_size : {args.batch_size}")
     log_info(f"  shuffle    : False")
     log_info(f"  num_workers: {args.num_workers}")
-    return res_loader, info_map
+    return res_loader, res_loader_l, res_loader_r, info_map
 
 def get_predict_result(model, data_loader):
     res_arr = []
@@ -112,6 +141,131 @@ def get_predict_result(model, data_loader):
     res = torch.concat(res_arr, dim=0)
     return res
 
+def predict_by_avg_score(model, test_bcc_loader, test_bcc_info, test_other_loader, test_other_info):
+    f_path_b = f"./ground_truth_value_1_0.res"  # BCC
+    f_path_o = f"./ground_truth_value_0_0.res"  # other
+    if os.path.exists(f_path_b):
+        res_test_bcc = torch.load(f_path_b)
+    else:
+        with torch.no_grad(): res_test_bcc = get_predict_result(model, test_bcc_loader)
+        torch.save(res_test_bcc, f_path_b)
+    if os.path.exists(f_path_o):
+        res_test_other = torch.load(f_path_o)
+    else:
+        with torch.no_grad(): res_test_other = get_predict_result(model, test_other_loader)
+        torch.save(res_test_other, f_path_o)
+
+    # =====================================================================
+    # 2023.09.02 (Sep 2nd). accuracy on: model_resnet101_500x500.ckpt
+    # test_bcc  : accu:0.970588 =  99 / 102
+    # test_other: accu:0.935294 = 157 / 170
+    # summary   : accu:0.941176 = 256 / 272
+    # ---------------------------------------------------------------------
+    numerator, denominator = 0, 0
+    nu, de = 0, len(test_bcc_info)
+    for full_dir, (i_start, i_ended) in test_bcc_info.items():
+        idx_list = list(range(i_start, i_ended))
+        res_arr = res_test_bcc[idx_list]
+        res_avg = torch.mean(res_arr, dim=0)
+        pred = torch.argmax(res_avg)
+        if pred == 1: nu += 1
+    # for
+    accu = float(nu) / de
+    log_info(f"test_bcc  : accu:{accu:.6f}={nu:3d}/{de:3d}")
+    numerator += nu
+    denominator += de
+
+    nu, de = 0, len(test_other_info)
+    for full_dir, (i_start, i_ended) in test_other_info.items():
+        idx_list = list(range(i_start, i_ended))
+        res_arr = res_test_other[idx_list]
+        res_avg = torch.mean(res_arr, dim=0)
+        pred = torch.argmax(res_avg)
+        if pred == 0: nu += 1
+    # for
+    accu = float(nu) / de
+    log_info(f"test_other: accu:{accu:.6f}={nu:3d}/{de:3d}")
+    numerator += nu
+    denominator += de
+
+    accu = float(numerator) / denominator
+    log_info(f"summary   : accu:{accu:.6f}={numerator}/{denominator}")
+    log_info(f"checkpoint: {args.ckpt_load_path}")
+    log_info(f"image_size: {args.image_size}")
+
+def predict_by_image(model, loader0, loader1, loader2, data_info, ground_truth_value):
+    # this is the cache for the prediction result.
+    f_path0 = f"./ground_truth_value_{ground_truth_value}_0.res"
+    f_path1 = f"./ground_truth_value_{ground_truth_value}_1.res"
+    f_path2 = f"./ground_truth_value_{ground_truth_value}_2.res"
+    if os.path.exists(f_path0):
+        res_score_arr0 = torch.load(f_path0)
+    else:
+        with torch.no_grad(): res_score_arr0 = get_predict_result(model, loader0)
+        torch.save(res_score_arr0, f_path0)
+    if os.path.exists(f_path1):
+        res_score_arr1 = torch.load(f_path1)
+    else:
+        with torch.no_grad(): res_score_arr1 = get_predict_result(model, loader1)
+        torch.save(res_score_arr1, f_path1)
+    if os.path.exists(f_path2):
+        res_score_arr2 = torch.load(f_path2)
+    else:
+        with torch.no_grad(): res_score_arr2 = get_predict_result(model, loader2)
+        torch.save(res_score_arr2, f_path2)
+
+    numerator = 0
+    denominator = len(data_info)
+    for full_dir, (i_start, i_ended) in data_info.items():
+        idx_list = list(range(i_start, i_ended))
+        seq_score_arr0 = res_score_arr0[idx_list]
+        seq_score_arr1 = res_score_arr1[idx_list]
+        seq_score_arr2 = res_score_arr2[idx_list]
+
+        # =====================================================================
+        # 2023.09.02 (Sep 2nd). accuracy on: model_resnet101_500x500.ckpt
+        # test_bcc  : accu:0.970588 =  99 / 102
+        # test_other: accu:0.935294 = 159 / 170
+        # summary   : accu:0.948529 = 258 / 272
+        # ---------------------------------------------------------------------
+        # seq_score_arr0 += seq_score_arr1
+        # seq_score_arr0 += seq_score_arr2
+        # avg_score = torch.mean(seq_score_arr0, dim=0)
+        # pred = torch.argmax(avg_score)
+        # if pred == ground_truth_value:
+        #     numerator += 1
+
+        # =====================================================================
+        # 2023.09.02 (Sep 2nd). accuracy on: model_resnet101_500x500.ckpt
+        # test_bcc  : accu:0.960784 =  98 / 102
+        # test_other: accu:0.947059 = 161 / 170
+        # summary   : accu:0.952206 = 259 / 272
+        # ---------------------------------------------------------------------
+        # get prediction result: 0 or 1.
+        seq_pred_arr0 = torch.argmax(seq_score_arr0, dim=1)
+        seq_pred_arr1 = torch.argmax(seq_score_arr1, dim=1)
+        seq_pred_arr2 = torch.argmax(seq_score_arr2, dim=1)
+        # check if correct: the prediction result match ground_truth
+        seq_res_arr0 = torch.eq(seq_pred_arr0, ground_truth_value).long()
+        seq_res_arr1 = torch.eq(seq_pred_arr1, ground_truth_value).long()
+        seq_res_arr2 = torch.eq(seq_pred_arr2, ground_truth_value).long()
+        # sum up the correct count
+        seq_res_arr0 += seq_res_arr1
+        seq_res_arr0 += seq_res_arr2
+        nu = torch.ge(seq_res_arr0, 2).sum() # of 3 prediction, 2 or more are correct
+        de = seq_pred_arr0.shape[0]
+        accu = float(nu) / de
+        # assume threshold is 0.6.
+        # Of the images in a sequence, if BCC images cover more than 60%, then we say sequence is BCC.
+        # And if less than 60%, then we say sequence is "other".
+        threshold = 0.6
+        if ground_truth_value == 1: # handle BCC case
+            if accu > threshold: numerator += 1
+        else: # handle "other" case
+            if accu >= (1-threshold): numerator += 1
+    # for
+    return numerator, denominator
+
 def main():
     model = load_model()
     model.eval()
@@ -121,38 +275,24 @@ def main():
     # train_other_loader, train_other_info = get_data_loader_info(file_train_other)
     file_test_bcc   = os.path.join(args.data_dir, "dir_val_bcc.txt")
     file_test_other = os.path.join(args.data_dir, "dir_val_other.txt")
-    test_bcc_loader, test_bcc_info     = get_data_loader_info(file_test_bcc)
-    test_other_loader, test_other_info = get_data_loader_info(file_test_other)
-    with torch.no_grad():
-        res_test_bcc   = get_predict_result(model, test_bcc_loader)
-        res_test_other = get_predict_result(model, test_other_loader)
-    # with
+    basal_loader, basal_loader1, basal_loader2, basal_info = get_data_loader_info(file_test_bcc)
+    other_loader, other_loader1, other_loader2, other_info = get_data_loader_info(file_test_other)
+
+    # calculate accuracy by average score.
+    # predict_by_avg_score(model, basal_loader, basal_info, other_loader, other_info)
+
+    # Calculate by single image classification result. For example:
+    # Of a sequence, if more than half is marked "BCC", then assume the sequence is BCC.
+    log_info(f"predict_by_image()...")
     numerator, denominator = 0, 0
-    nu, de = 0, 0
-    for full_dir, (i_start, i_ended) in test_bcc_info.items():
-        idx_list = list(range(i_start, i_ended))
-        res_arr = res_test_bcc[idx_list]
-        res_avg = torch.mean(res_arr, dim=0)
-        pred = torch.argmax(res_avg)
-        de += 1
-        if pred == 1: nu += 1
-    # for
+    nu, de = predict_by_image(model, basal_loader, basal_loader1, basal_loader2, basal_info, 1)
     accu = float(nu) / de
-    log_info(f"test_bcc  : accu:{accu:.6f}={nu}/{de}")
+    log_info(f"test_bcc  : accu:{accu:.6f}={nu:3d}/{de:3d}")
     numerator += nu
     denominator += de
-
-    nu, de = 0, 0
-    for full_dir, (i_start, i_ended) in test_other_info.items():
-        idx_list = list(range(i_start, i_ended))
-        res_arr = res_test_other[idx_list]
-        res_avg = torch.mean(res_arr, dim=0)
-        pred = torch.argmax(res_avg)
-        de += 1
-        if pred == 0: nu += 1
-    # for
+    nu, de = predict_by_image(model, other_loader, other_loader1, other_loader2, other_info, 0)
     accu = float(nu) / de
-    log_info(f"test_other: accu:{accu:.6f}={nu}/{de}")
+    log_info(f"test_other: accu:{accu:.6f}={nu:3d}/{de:3d}")
     numerator += nu
     denominator += de
 
@@ -161,10 +301,6 @@ def main():
     log_info(f"checkpoint: {args.ckpt_load_path}")
     log_info(f"image_size: {args.image_size}")
 
-    # todo: the above is to calculate accuracy by average score.
-    # How about by single image classification result. For example:
-    # Of a single image, "BCC" type mark 1 and "other"s" mark 0.
-    # If average mark reaches 0.4, then assume the sequence is BCC.
 
 if __name__ == '__main__':
     args = parse_args()
