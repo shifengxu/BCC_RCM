@@ -202,12 +202,15 @@ By differing the input image size and augmentation options, we get the accuracy 
 
 | input size | Resnet    | BCC+Other  | BCC    | Other  | happen<br/>at epoch | augment                                                   |
 |------------|-----------|------------|--------|--------|---------------------|-----------------------------------------------------------|
-| 224x224    | resnet101 |            |        |        |                     | RandomHorizontalFlip(p=0.5)                               |
-| 500x500    | resnet101 |            |        |        |                     | RandomHorizontalFlip(p=0.5)                               |
-| 1000x1000  | resnet101 |            |        |        |                     | RandomHorizontalFlip(p=0.5)                               |
-| 224x224    | resnet152 |            |        |        |                     | RandomHorizontalFlip(p=0.5)                               |
-| 500x500    | resnet152 |            |        |        |                     | RandomHorizontalFlip(p=0.5)                               |
-| 1000x1000  | resnet152 |            |        |        |                     | RandomHorizontalFlip(p=0.5)                               |
+| 224x224    | resnet101 | **0.9558** | 0.9215 | 0.9764 | 24 of 30            | RandomHorizontalFlip(p=0.5)                               |
+| 500x500    | resnet101 | **0.9522** | 0.8725 | 1.0000 | 15 of 20            | RandomHorizontalFlip(p=0.5)                               |
+| 1000x1000  | resnet101 | **0.9154** | 0.8137 | 0.9764 | 4 of 10             | RandomHorizontalFlip(p=0.5)                               |
+| 224x224    | resnet152 | **0.9632** | 0.9117 | 0.9941 | 12 of 30            | RandomHorizontalFlip(p=0.5)                               |
+| 500x500    | resnet152 | **0.9301** | 0.8333 | 0.9882 | 10 of 20            | RandomHorizontalFlip(p=0.5)                               |
+| 1000x1000  | resnet152 | **0.9522** | 0.9117 | 0.9764 | 2 of 10             | RandomHorizontalFlip(p=0.5)                               |
+| 224x224    | resnet101 | **0.9044** | 0.8921 | 0.9117 | 27 of 30            | RandomHorizontalFlip(p=0.5)<br/>RandomRotation((-15, 15)) |
+| 500x500    | resnet101 | **0.9485** | 0.9705 | 0.9352 | 17 of 20            | RandomHorizontalFlip(p=0.5)<br/>RandomRotation((-15, 15)) |
+| 1000x1000  | resnet101 | **0.9669** | 0.9411 | 0.9823 | 6 of 10             | RandomHorizontalFlip(p=0.5)<br/>RandomRotation((-15, 15)) |
 | 224x224    | resnet152 | **0.9154** | 0.8823 | 0.9352 | 27 of 30            | RandomHorizontalFlip(p=0.5)<br/>RandomRotation((-15, 15)) |
 | 500x500    | resnet152 | **0.9485** | 0.9705 | 0.9352 | 19 of 20            | RandomHorizontalFlip(p=0.5)<br/>RandomRotation((-15, 15)) |
 | 1000x1000  | resnet152 | **0.9462** | 0.9090 | 0.9644 | 7 of 10             | RandomHorizontalFlip(p=0.5)<br/>RandomRotation((-15, 15)) |
