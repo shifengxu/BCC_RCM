@@ -5,7 +5,7 @@ Basal Cell Carcinoma by Reflectance Confocal Microscopy images.
 ## 1. Prepare dataset
 For current experiment, the dataset is well provided, and well classified in different folders.
 
-### 1.1. Terminations
+### 1.1. Terminologies
 About the dataset, there are some terms to be explained.
 
 **image sequence**: In hospital when doctors are diagnosing the skin conditions of patient, the doctor may  take
